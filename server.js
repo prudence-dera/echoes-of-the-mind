@@ -1,0 +1,50 @@
+'use strict';
+const http=require('http'),fs=require('fs'),path=require('path'),crypto=require('crypto');
+const {WebSocketServer,WebSocket}=require('ws');
+const PORT=Number(process.env.PORT)||3000;
+const root=path.join(__dirname,'public');
+const types={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml','.ico':'image/x-icon'};
+const server=http.createServer((req,res)=>{
+  const pathname=new URL(req.url,'http://localhost').pathname;
+  let file=path.resolve(root,'.'+decodeURIComponent(pathname==='/'?'/index.html':pathname));
+  if(!file.startsWith(root+path.sep)){res.writeHead(403);return res.end('Forbidden');}
+  fs.readFile(file,(err,body)=>{if(err){res.writeHead(404);res.end('Not found');return;}res.writeHead(200,{'Content-Type':types[path.extname(file)]||'application/octet-stream','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(body);});
+});
+const wss=new WebSocketServer({server,maxPayload:8192});
+const rooms=new Map();
+const ROLES=['logic','emotion','corrupt'];
+const STORIES=[
+ {title:'THE BIRTHDAY THAT FLOATED AWAY',visual:['🎂','🎈','🌳','🤡','✨'],words:['CAKE','BRANCHES','LAUGHTER','PANIC','FIVE'],truth:{who:'A CLOWN',where:'IN A TREE',what:'FIFTH BIRTHDAY',mood:'CHAOTIC JOY'},facts:['Someone turned five years old.','A performer became stuck above the guests.','Balloons and a birthday cake were present.'],emotion:'CHAOTIC JOY',color:'#ffc876',falseWords:['TRAIN CRASH','CITY IN RUINS','FATAL ACCIDENT'],lie:'A terrible transportation disaster shook the city.'},
+ {title:'THE RAIN-SOAKED REUNION',visual:['🚉','☂️','🐕','💌','🌧️'],words:['PLATFORM','TAIL','RETURN','TEARS','RAIN'],truth:{who:'A LOST DOG',where:'AT A STATION',what:'A REUNION',mood:'RELIEF'},facts:['The reunion happened where trains stop.','The missing family member had four paws.','An umbrella sheltered two people.'],emotion:'RELIEF',color:'#77d9dc',falseWords:['FACTORY FIRE','FLOOD DISASTER','EVACUATION'],lie:'This is a record of a catastrophic flood evacuation.'},
+ {title:'THE MIDNIGHT RECIPE',visual:['🥣','🌕','👵','🍪','⭐'],words:['FLOUR','OVEN','WHISPER','SECRET','MIDNIGHT'],truth:{who:'A GRANDMOTHER',where:'IN A KITCHEN',what:'MIDNIGHT BAKING',mood:'NOSTALGIA'},facts:['The oldest family member knew the secret recipe.','It happened after everyone was asleep.','The smell of cookies filled the house.'],emotion:'NOSTALGIA',color:'#c79afa',falseWords:['POWER BLACKOUT','HISTORIC FAMINE','FOOD SHORTAGE'],lie:'A famine forced a community into a night of desperation.'},
+ {title:'THE BEACH-SIDE PROMISE',visual:['🏖️','🪁','💍','🌅','🌊'],words:['SAND','PROMISE','WAVES','SUNSET','RING'],truth:{who:'TWO LOVERS',where:'ON A BEACH',what:'A PROPOSAL',mood:'HOPE'},facts:['A small ring changed the future.','The sun was disappearing into the ocean.','Two people made a promise.'],emotion:'HOPE',color:'#ff90b6',falseWords:['SHIPWRECK','COASTAL DISASTER','TSUNAMI'],lie:'A terrible shipwreck destroyed a coastal community.'},
+ {title:'THE LIBRARY SURPRISE',visual:['📚','🐈','🕯️','🎓','🎉'],words:['BOOKS','MEOW','SURPRISE','CANDLES','QUIET'],truth:{who:'A STRAY CAT',where:'IN A LIBRARY',what:'GRADUATION PARTY',mood:'DELIGHT'},facts:['Students gathered to celebrate graduation.','An unexpected four-legged guest interrupted.','The celebration was held among bookshelves.'],emotion:'DELIGHT',color:'#b5ffcf',falseWords:['LIBRARY FIRE','ARCHIVE LOSS','BUILDING COLLAPSE'],lie:'An important archive was destroyed by a massive fire.'}
+];
+const FIELD_LABELS={who:'WHO',where:'WHERE',what:'WHAT HAPPENED',mood:'HOW IT FELT'};
+const OPTIONS={who:['A CLOWN','A LOST DOG','A GRANDMOTHER','TWO LOVERS','A STRAY CAT','A TRAIN CONDUCTOR'],where:['IN A TREE','AT A STATION','IN A KITCHEN','ON A BEACH','IN A LIBRARY','IN A RUINED CITY'],what:['FIFTH BIRTHDAY','A REUNION','MIDNIGHT BAKING','A PROPOSAL','GRADUATION PARTY','HISTORIC DISASTER'],mood:['CHAOTIC JOY','RELIEF','NOSTALGIA','HOPE','DELIGHT','FEAR']};
+function send(ws,msg){if(ws&&ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify(msg));}
+function broadcast(room,msg){room.players.forEach(p=>send(p.ws,msg));}
+function code(){let s;do{s=crypto.randomBytes(3).toString('hex').toUpperCase();}while(rooms.has(s));return s;}
+function roster(room){return room.players.map(p=>({id:p.id,name:p.name,role:room.phase==='ended'?p.role:null,online:true}));}
+function snapshot(room,p){const live=room.phase==='playing',s=STORIES[room.storyIndex];let data={type:'state',code:room.code,phase:room.phase,hostId:room.hostId,you:p.id,role:p.role,round:room.round,players:roster(room),timer:live?Math.max(0,Math.ceil((room.endsAt-Date.now())/1000)):0,board:live?{title:'FRAGMENTED MEMORY',visual:s.visual,words:s.words,noise:room.noise}:null,choices:OPTIONS,labels:FIELD_LABELS,answers:room.answers,signals:room.signals.slice(-8),commands:room.commands.slice(-7),victory:room.victory,post:room.phase==='ended'?{title:s.title,truth:s.truth,lie:s.lie}:null};
+ if(live){if(p.role==='logic')data.private={facts:s.facts};if(p.role==='emotion')data.private={emotion:s.emotion,color:s.color};if(p.role==='corrupt')data.private={falseWords:s.falseWords,lie:s.lie};}
+ send(p.ws,data);}
+function update(room){room.players.forEach(p=>snapshot(room,p));}
+function end(room,win){if(room.phase!=='playing')return;room.phase='ended';room.victory=win;clearTimeout(room.timeout);room.timeout=null;update(room);}
+function start(room){if(room.players.length!==3||room.phase==='playing')return false;room.round++;room.phase='playing';room.victory=false;room.storyIndex=(room.storyIndex+1)%STORIES.length;room.answers={who:'',where:'',what:'',mood:''};room.signals=[];room.commands=[];room.noise=0;room.endsAt=Date.now()+180000;const shuffled=[...ROLES].sort(()=>Math.random()-.5);room.players.forEach((p,i)=>p.role=shuffled[i]);room.timeout=setTimeout(()=>end(room,false),180000);update(room);return true;}
+function sanitize(v,n=140){return String(v||'').replace(/[<>\x00-\x1f]/g,'').trim().slice(0,n);}
+function handle(ws,m){if(typeof m!=='object'||!m)return;const p=ws.player; if(m.type==='create'&&!p){const name=sanitize(m.name,24);if(!name)return send(ws,{type:'error',message:'Enter your player name.'});const r={code:code(),players:[],hostId:null,phase:'lobby',round:0,storyIndex:-1,answers:{},signals:[],commands:[],noise:0};const me={id:crypto.randomUUID(),name,ws,role:null};ws.player=me;ws.room=r;r.players.push(me);r.hostId=me.id;rooms.set(r.code,r);update(r);return;}
+ if(m.type==='join'&&!p){const r=rooms.get(sanitize(m.code,6).toUpperCase()),name=sanitize(m.name,24);if(!name)return send(ws,{type:'error',message:'Enter your name.'});if(!r)return send(ws,{type:'error',message:'Room not found.'});if(r.players.length>=3)return send(ws,{type:'error',message:'This room already has three players.'});if(r.phase!=='lobby'&&r.phase!=='ended')return send(ws,{type:'error',message:'Wait until the next round to join.'});const me={id:crypto.randomUUID(),name,ws,role:null};ws.player=me;ws.room=r;r.players.push(me);update(r);return;}
+ if(!p)return;const r=ws.room;if(!r)return;
+ if(m.type==='start'){if(p.id!==r.hostId)return; if(!start(r))send(ws,{type:'error',message:'Three players are required to start.'});return;}
+ if(m.type==='lobby'&&p.id===r.hostId&&r.phase==='ended'){r.phase='lobby';r.players.forEach(x=>x.role=null);update(r);return;}
+ if(r.phase!=='playing')return;
+ if(m.type==='command'&&p.role==='logic'){const value=sanitize(m.value,100);if(!value)return;const allowed=['CHECK THE IMAGE','FOCUS ON WHO','FOCUS ON WHERE','FOCUS ON EVENT','TRUST THE FACTS','REVIEW ALL CLUES'];if(!allowed.includes(value))return;r.commands.push({by:p.name,value});r.commands=r.commands.slice(-12);update(r);}
+ if(m.type==='pulse'&&p.role==='emotion'){const value=sanitize(m.value,20);if(!['SOFT','STRONG','WARM','COOL'].includes(value))return;r.signals.push({kind:'pulse',value,by:p.name,at:Date.now()});r.signals=r.signals.slice(-12);broadcast(r,{type:'pulse',value,by:p.name});update(r);}
+ if(m.type==='distort'&&p.role==='corrupt'){if(r.noise>=3)return send(ws,{type:'error',message:'Your distortion energy is exhausted.'});r.noise++;r.signals.push({kind:'glitch',value:'MEMORY CORRUPTED',by:'UNKNOWN',at:Date.now()});broadcast(r,{type:'glitch'});update(r);}
+ if(m.type==='answer'){const key=sanitize(m.key,10),val=sanitize(m.value,40);if(!OPTIONS[key]?.includes(val))return;r.answers[key]=val;update(r);}
+ if(m.type==='submit'){if(!Object.values(r.answers).every(Boolean))return send(ws,{type:'error',message:'Complete all four memory fields first.'});const truth=STORIES[r.storyIndex].truth;const win=Object.keys(truth).every(k=>r.answers[k]===truth[k]);end(r,win);}
+}
+wss.on('connection',ws=>{send(ws,{type:'hello'});ws.on('message',raw=>{try{handle(ws,JSON.parse(raw.toString()));}catch{send(ws,{type:'error',message:'Invalid request.'});}});ws.on('close',()=>{const p=ws.player,r=ws.room;if(!p||!r)return;r.players=r.players.filter(x=>x.id!==p.id);if(r.players.length===0){clearTimeout(r.timeout);rooms.delete(r.code);return;}if(p.id===r.hostId)r.hostId=r.players[0].id;if(r.phase==='playing')end(r,false);else update(r);});});
+setInterval(()=>{for(const r of rooms.values())if(r.phase==='playing'){if(Date.now()>=r.endsAt)end(r,false);else broadcast(r,{type:'tick',timer:Math.max(0,Math.ceil((r.endsAt-Date.now())/1000))});}},1000).unref();
+server.listen(PORT,'0.0.0.0',()=>console.log(`Echoes of the Mind listening on ${PORT}`));
