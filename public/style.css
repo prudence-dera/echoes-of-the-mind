@@ -167,3 +167,26 @@ button:active:not(:disabled){transform:scale(.98)}
   .brain-content h2{font-size:1.25rem}
 }
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+
+/* Countdown timer warning enhancements */
+.timer-panel.warn,
+.timer-panel.danger{position:relative;overflow:hidden}
+.timer-panel.warn{border-color:rgba(255,213,139,.75);box-shadow:0 0 0 1px rgba(255,213,139,.15),0 0 28px rgba(255,184,77,.12)}
+.timer-panel.danger{border-color:rgba(255,126,198,.88);box-shadow:0 0 0 1px rgba(255,126,198,.18),0 0 34px rgba(255,74,145,.18)}
+.timer-panel.warn strong{color:var(--gold)}
+.timer-panel.danger strong{color:#ffd9e9}
+.warning-banner{display:grid;gap:4px;margin-top:16px;padding:15px 18px;border-radius:18px;border:1px solid rgba(255,213,139,.68);background:linear-gradient(135deg,rgba(105,68,18,.68),rgba(50,23,48,.72));box-shadow:0 14px 34px rgba(0,0,0,.25);animation:warningPulse 1.2s ease-in-out infinite}
+.warning-banner.danger{border-color:rgba(255,126,198,.82);background:linear-gradient(135deg,rgba(111,26,55,.82),rgba(59,18,31,.76));animation-duration:.78s}
+.warning-banner .warning-kicker{font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;font-weight:900;color:#fff0cf}
+.warning-banner strong{font-size:1.06rem;letter-spacing:.08em}
+.warning-banner .warning-time{font-size:1.35rem;font-weight:900;color:#fff;letter-spacing:.08em}
+@keyframes warningPulse{0%,100%{transform:translateY(0);box-shadow:0 12px 34px rgba(0,0,0,.25)}50%{transform:translateY(-1px);box-shadow:0 16px 38px rgba(255,100,160,.22)}}
+body.warning-30 .brain-stage{box-shadow:var(--shadow),0 0 34px rgba(255,184,77,.18)}
+body.warning-30 .brain-tag{border-color:rgba(255,213,139,.72);color:#fff1c6}
+body.warning-10 .brain-stage{box-shadow:var(--shadow),0 0 42px rgba(255,94,168,.28);animation:stageAlarm .85s ease-in-out infinite}
+body.warning-10 .brain-image{filter:saturate(1.14) contrast(1.07) brightness(.92)}
+body.warning-10 .brain-grid{opacity:.42}
+body.warning-10 .status-chip.good,
+body.warning-10 .status-chip.warn{color:#ffd6e8;border-color:rgba(255,126,198,.7);background:rgba(57,12,30,.72)}
+@keyframes stageAlarm{0%,100%{transform:translateY(0)}50%{transform:translateY(-1px)}}
+
