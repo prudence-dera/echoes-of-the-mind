@@ -51,3 +51,14 @@ Open `http://localhost:3000`. Other devices on the same network can use `http://
 ## Portfolio
 
 Built as a creative example of real-time networking, asymmetric information, role-based UI, cooperative deduction, adversarial gameplay, cloud deployment, and event-driven JavaScript.
+
+
+## Version 2 improvements
+- Four-minute rounds with three submission attempts. Wrong submissions report how many fragments match instead of immediately ending the round.
+- Four answer choices per fragment, with options randomized each round.
+- Clearer lobby instructions, role action instructions, progress bar-style status, and accessible feedback.
+- Enhanced neon/glitch memory-board styling and more usable mobile buttons.
+
+**Deployment:** Replace the files in the existing GitHub repository and commit. Render should redeploy automatically if GitHub auto-deploy is enabled. Do not create a second Render service.
+
+- Only the Logic Engine can submit a reconstruction, so the secret saboteur cannot instantly burn all three attempts.
