@@ -190,3 +190,63 @@ body.warning-10 .status-chip.good,
 body.warning-10 .status-chip.warn{color:#ffd6e8;border-color:rgba(255,126,198,.7);background:rgba(57,12,30,.72)}
 @keyframes stageAlarm{0%,100%{transform:translateY(0)}50%{transform:translateY(-1px)}}
 
+
+/* Echoes of the Mind — final control-room layout polish */
+/* Place at the bottom of public/style.css */
+.brain-stage { min-height: 570px; }
+.brain-stage .brain-hud.top-left { top: 18px; left: 18px; }
+.brain-stage .brain-hud.top-right { top: 18px; right: 18px; }
+.brain-stage .brain-content {
+  min-height: 536px;
+  height: auto;
+  max-width: 100%;
+  padding: 150px 24px 146px;
+  justify-content: flex-start;
+}
+.brain-stage .brain-tag {
+  margin: 0 0 16px;
+  max-width: 100%;
+}
+.brain-stage .brain-content h2 {
+  margin: 0 0 12px;
+  max-width: 900px;
+  overflow-wrap: anywhere;
+}
+.brain-stage .brain-content p { max-width: 850px; }
+.brain-stage .brain-hud.bottom-left { max-width: min(560px, calc(100% - 36px)); }
+/* Make a victory look different from a timeout/defeat, without touching game logic */
+.brain-stage.memory-victory {
+  border-color: rgba(110,255,215,.85);
+  box-shadow: var(--shadow), 0 0 50px rgba(73,246,200,.36), inset 0 0 32px rgba(73,246,200,.08);
+}
+.brain-stage.memory-victory .brain-image {
+  filter: saturate(1.3) contrast(1.08) brightness(1.12) hue-rotate(18deg);
+}
+.brain-stage.memory-victory .brain-tag {
+  color: #c8ffee;
+  border-color: rgba(110,255,215,.78);
+  box-shadow: 0 0 24px rgba(110,255,215,.3);
+}
+.brain-stage.memory-victory .brain-content h2 {
+  color: #e3fff4;
+  text-shadow: 0 0 22px rgba(73,246,200,.6);
+}
+.brain-stage.memory-victory::after {
+  border-color: rgba(131,255,220,.43);
+  box-shadow: inset 0 0 36px rgba(73,246,200,.12);
+}
+@media (max-width: 760px) {
+  .brain-stage { min-height: 670px; }
+  .brain-stage .brain-content {
+    min-height: 646px;
+    padding: 150px 8px 180px;
+  }
+  .brain-stage .brain-hud.top-right { top: 20px; right: 14px; }
+  .brain-stage .brain-hud.top-right button { padding: 10px; font-size: .72rem; }
+  .brain-stage .brain-content h2 { font-size: clamp(1.3rem,5vw,2rem); }
+  .brain-stage .brain-hud.bottom-left { bottom: 14px; max-width: calc(100% - 28px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .brain-stage.memory-victory, .brain-stage.memory-victory * { animation: none !important; }
+}
+
